@@ -1,441 +1,1031 @@
 # AI-Powered Business Enquiry Automation System
 
-**Built for:** Curd Rice Business Studio – AI Intern Technical Assessment
-**Author:** Mounika S S
-**Stack:** Python · Streamlit · OpenAI API · FastAPI · SQLite · Pydantic
-
-> Paste a customer enquiry, and the system extracts the key details, classifies it, scores the lead with transparent rules, recommends the next best action, drafts a safe reply and flags enquiries that need a human. It stores everything in SQLite. Replies are only ever drafts. Nothing is sent automatically.
+**Built for:** Curd Rice Business Studio – AI Intern Technical Assessment  
+**Author:** Sakthisree  
+**Stack:** Python · Streamlit · Google Gemini API · FastAPI · SQLite · Pydantic
 
 ---
 
-## 1. Project Title
+## 1. Project Overview
 
-**AI-Powered Business Enquiry Automation System** with Lead Intelligence and Next Best Action.
+The **AI-Powered Business Enquiry Automation System** automates the first-response workflow for customer and business enquiries.
+
+A user can submit an enquiry, and the system:
+
+1. Extracts important information using an LLM.
+2. Classifies the enquiry.
+3. Calculates a transparent lead score using deterministic Python rules.
+4. Determines the lead priority.
+5. Recommends a **Next Best Action**.
+6. Identifies missing information.
+7. Generates a safe, personalised response draft.
+8. Checks the response for potentially invented business information.
+9. Determines whether human review is required.
+10. Stores the complete result in SQLite.
+
+**Important:** Responses are always stored as drafts. The system does not automatically send messages to customers.
+
+---
 
 ## 2. Problem Statement
 
-Curd Rice Business Studio receives enquiries through its website, email and other channels. They cover consulting, AI automation, websites, apps, branding, marketing, general questions, job requests, partnerships and complaints. Today someone has to read each one, work out what it is about, judge whether it is a real business opportunity, and write a reply. That approach has several problems:
+Curd Rice Business Studio can receive enquiries related to:
 
-- It is **slow**, and hot leads go cold while they wait in the inbox.
-- It is **inconsistent**, because different people prioritise differently.
-- It is **risky**, because a rushed reply can promise a price or a deadline the business cannot keep.
-- **Unhappy customers** can be missed among routine messages.
+- AI automation
+- Website development
+- Applications and ERP systems
+- Operational systems
+- Business intelligence
+- Branding and design
+- Digital marketing
+- General questions
+- Internships and job opportunities
+- Partnerships
+- Complaints and support
+
+Manually processing every enquiry creates several problems:
+
+- **Slow response:** High-value leads may wait too long.
+- **Inconsistent prioritisation:** Different team members may evaluate enquiries differently.
+- **Business risk:** Replies may accidentally promise prices, deadlines or guarantees.
+- **Missed urgent issues:** Complaints and sensitive enquiries can be overlooked.
+- **Repeated communication:** Sales teams may need multiple messages to collect basic information.
+
+The goal of this project is to automate the repetitive first-response work while keeping important business decisions and customer communication under human control.
+
+---
 
 ## 3. Solution
 
-A working application that runs the whole first-response workflow automatically and keeps a human in control:
+The system follows a hybrid architecture:
 
-1. **Understands** the enquiry with an LLM (OpenAI), returning strict JSON.
-2. **Extracts** name, company, email, requirement, category, budget and timeline. Anything not mentioned is stored as `null`.
-3. **Classifies** the enquiry into one of 13 configurable categories.
-4. **Scores** the lead from 0 to 100 using **transparent Python rules**, not the LLM, and explains the score.
-5. **Recommends a Next Best Action** (the innovation): what to do, who owns it, how urgent it is, why it matters, and what information is still missing.
-6. **Drafts a personalised reply** under strict business rules, then **checks the draft automatically** for invented prices, guarantees or deadlines.
-7. **Flags enquiries that need human review** and says why.
-8. **Stores everything** in SQLite, with a history and approval screen, a dashboard, CSV batch upload and a REST API.
+> **LLM for language understanding and generation + Python for deterministic business decisions.**
 
-## 4. Features
+### Processing flow
+
+1. **Input validation**
+2. **AI analysis**
+3. **Pydantic validation**
+4. **Grounding check**
+5. **Deterministic lead scoring**
+6. **Next Best Action**
+7. **Response generation**
+8. **Response safety check**
+9. **Human-review decision**
+10. **SQLite storage**
+
+The LLM does not decide the lead score, priority, review requirement or next action. These are determined by Python business rules.
+
+This makes the system more predictable, testable and explainable.
+
+---
+
+## 4. Key Features
 
 | Area | Feature |
 |---|---|
-| Input | Web form, **CSV batch upload**, **REST API** (`POST /enquiries`), 14 built-in sample enquiries |
-| AI | One OpenAI call for extraction, classification and signals (JSON mode), plus one call for the reply |
-| Reliability | Pydantic validation, one self-repair retry on invalid JSON, a **rule-based fallback engine**, clear mock-mode banner |
-| Anti-hallucination | **Grounding check** (extracted values must appear in the enquiry) and a **response guardrail** (no invented prices or dates) |
-| Lead scoring | 6 weighted, explainable factors, deterministic, High/Medium/Low |
-| Innovation | **Next Best Action**: action, owner, urgency, internal response target, why it matters, missing info, follow-up questions (fed into the reply) |
-| Human-in-the-loop | Human-review rules with reasons; edit, **Approve** or **Reject** each draft; status tracking |
-| Storage | SQLite created automatically; full JSON result plus queryable columns |
-| UI | New Enquiry, Batch Processing, History & Approval, Dashboard (metrics, charts, review queue) |
-| Testing | 21 automated tests (`unittest`), with no API key or network needed |
+| Input | Streamlit web form, CSV batch upload and REST API |
+| AI | Google Gemini for extraction, classification and response generation |
+| Structured output | JSON output validated using Pydantic |
+| Reliability | Validation, retry handling and rule-based fallback |
+| Grounding | Removes extracted values that are not supported by the enquiry |
+| Response safety | Checks generated replies for unsafe/invented business information |
+| Lead scoring | Six weighted, explainable factors |
+| Priority | High / Medium / Low |
+| Innovation | Next Best Action with owner, urgency and missing information |
+| Human-in-the-loop | Review, edit, approve or reject response drafts |
+| Storage | SQLite |
+| UI | New Enquiry, Batch Processing, History & Approval, Dashboard |
+| API | FastAPI REST API with Swagger documentation |
+| Testing | 21 automated tests |
+
+---
 
 ## 5. Architecture
 
-```
-            ┌──────────────── INPUT CHANNELS ────────────────┐
-            │  Streamlit form   CSV upload   REST API (POST)  │
-            └──────────────────────┬──────────────────────────┘
-                                   ▼
-                     services/pipeline.py  process_enquiry()
-                                   │
-  1. Validate input ───────────────┤ utils/validators.validate_enquiry_text
-                                   ▼
-  2. AI processing ──────► services/ai_service.analyse_enquiry
-     (extraction +          ├─ OpenAI JSON mode → Pydantic EnquiryAnalysis
-      classification)       ├─ invalid JSON → 1 self-repair retry
-                            └─ API error / no key → services/mock_ai (rule engine)
-                                   ▼
-  3. Grounding check ──────► utils/validators.ground_analysis (drop invented values)
-                                   ▼
-  4. Lead scoring ─────────► services/scoring_service (6 factors → 0-100 → H/M/L + explanation)
-                                   ▼
-  5. Next Best Action ─────► services/next_action_service (action, urgency, owner, missing info)
-                                   ▼
-  6. Response draft ───────► services/response_service (LLM or template)
-                            └─ utils/validators.check_response_safety → unsafe? use safe template
-                                   ▼
-  7. Human review ─────────► services/review_service (rules + reasons)
-                                   ▼
-  8. Database ─────────────► database/database.py (SQLite, status = "Draft")
-                                   ▼
-            History & Approval screen / API PATCH → Approved / Rejected (by a human)
+```text
+                  ┌──────────────────────────────┐
+                  │       INPUT CHANNELS         │
+                  │                              │
+                  │ Streamlit │ CSV │ REST API   │
+                  └──────────────┬───────────────┘
+                                 │
+                                 ▼
+                  ┌──────────────────────────────┐
+                  │     services/pipeline.py     │
+                  │      process_enquiry()       │
+                  └──────────────┬───────────────┘
+                                 │
+                    1. Validate input
+                                 │
+                                 ▼
+                  ┌──────────────────────────────┐
+                  │      Gemini AI Analysis      │
+                  │                              │
+                  │ Extraction + Classification  │
+                  │ Structured JSON output       │
+                  └──────────────┬───────────────┘
+                                 │
+                    2. Pydantic validation
+                                 │
+                                 ▼
+                  ┌──────────────────────────────┐
+                  │      Grounding Check         │
+                  │                              │
+                  │ Remove unsupported values    │
+                  └──────────────┬───────────────┘
+                                 │
+                                 ▼
+                  ┌──────────────────────────────┐
+                  │      Lead Scoring            │
+                  │                              │
+                  │ Deterministic Python rules   │
+                  │ Score: 0–100                 │
+                  └──────────────┬───────────────┘
+                                 │
+                                 ▼
+                  ┌──────────────────────────────┐
+                  │      Next Best Action        │
+                  │                              │
+                  │ Action │ Owner │ Urgency     │
+                  │ Missing information          │
+                  └──────────────┬───────────────┘
+                                 │
+                                 ▼
+                  ┌──────────────────────────────┐
+                  │     Response Generation      │
+                  │                              │
+                  │ Gemini / Safe Template       │
+                  └──────────────┬───────────────┘
+                                 │
+                    Response safety check
+                                 │
+                                 ▼
+                  ┌──────────────────────────────┐
+                  │       Human Review           │
+                  │                              │
+                  │ Edit │ Approve │ Reject      │
+                  └──────────────┬───────────────┘
+                                 │
+                                 ▼
+                  ┌──────────────────────────────┐
+                  │        SQLite Database        │
+                  └──────────────────────────────┘
 ```
 
-**Customer enquiry → AI processing → information extraction → classification → lead scoring → next best action → response generation → human review → database**
+### Core design principle
 
-Key design decision: **the LLM does the language work (understanding and writing). Python does the business decisions (score, priority, review, next action).** The decisions are therefore deterministic, testable and explainable, and the AI cannot "decide" to promise something.
+**The LLM handles language. Python handles business decisions.**
+
+This separation prevents the model from directly determining business-critical decisions such as lead priority or whether an enquiry requires human review.
+
+---
 
 ## 6. Technology Stack
 
-| Technology | Why |
+| Technology | Purpose |
 |---|---|
-| **Python 3.10+** | Best ecosystem for AI work; quick to build; easy to read in an interview |
-| **Streamlit** | A full web UI in pure Python, so no React is needed; good for internal tools and demos |
-| **OpenAI API** (Chat Completions, JSON mode) | Reliable language understanding and structured JSON output; `gpt-4o-mini` is cheap and fast. Works with any OpenAI-compatible endpoint (e.g. local Ollama) through `OPENAI_BASE_URL` |
-| **FastAPI** | Gives the automation a real API, so website forms, email parsers, WhatsApp webhooks or n8n/Make can push enquiries in. Free Swagger docs at `/docs` |
-| **SQLite** | Zero setup: one file, built into Python, created automatically. Ideal for an MVP |
-| **Pydantic** | Validates every AI output against a schema, so the system never trusts raw LLM text |
-| **python-dotenv** | Keeps the API key in `.env`, out of code and out of GitHub |
-| **unittest** | Standard library, so the tests need no extra installs |
+| **Python 3.10+** | Core application and business logic |
+| **Streamlit** | Web-based user interface |
+| **Google Gemini API** | Enquiry understanding and response generation |
+| **FastAPI** | REST API and automation integration |
+| **Pydantic** | Validation of structured AI outputs |
+| **SQLite** | Local persistent storage |
+| **python-dotenv** | Environment variable management |
+| **unittest** | Automated testing |
 
-No LangChain/LangGraph: two well-defined LLM calls do not need an orchestration framework, and plain code is easier to debug and explain.
+### Why this stack?
+
+Python provides a strong ecosystem for AI and data processing.
+
+Streamlit allows a functional web UI to be built without a separate frontend framework.
+
+FastAPI provides a real API that can later receive enquiries from website forms, email systems, WhatsApp integrations or workflow automation platforms.
+
+SQLite provides zero-configuration persistent storage and is suitable for an MVP.
+
+Pydantic ensures that AI-generated structured data is validated before entering the business pipeline.
+
+---
 
 ## 7. Project Structure
 
-```
+```text
 curd-rice-enquiry-automation/
-├── app.py                        # Streamlit UI (4 pages)
-├── api.py                        # FastAPI REST API (same pipeline)
-├── config.py                     # env vars, business profile & rules, categories, thresholds
+│
+├── app.py
+├── api.py
+├── config.py
 ├── requirements.txt
-├── .env.example                  # template – copy to .env
-├── .gitignore                    # keeps .env and the database out of Git
+├── .gitignore
+│
 ├── models/
-│   └── schemas.py                # Pydantic models: AI output, score, NBA, review, API bodies
+│   └── schemas.py
+│
 ├── services/
-│   ├── pipeline.py               # the automation workflow (single entry point)
-│   ├── ai_service.py             # OpenAI calls, JSON parsing, retry, error mapping
-│   ├── mock_ai.py                # rule-based analyser (demo mode + fallback)
-│   ├── scoring_service.py        # transparent lead-scoring algorithm
-│   ├── next_action_service.py    # INNOVATION – Next Best Action & missing information
-│   ├── response_service.py       # reply drafting + safe templates
-│   └── review_service.py         # human-review rules
+│   ├── pipeline.py
+│   ├── ai_service.py
+│   ├── mock_ai.py
+│   ├── scoring_service.py
+│   ├── next_action_service.py
+│   ├── response_service.py
+│   └── review_service.py
+│
 ├── utils/
-│   └── validators.py             # input validation, grounding check, response guardrail
+│   └── validators.py
+│
 ├── database/
-│   ├── database.py               # SQLite schema & queries
-│   └── enquiries.db              # created automatically (git-ignored)
+│   └── database.py
+│
 ├── ui/
-│   └── components.py             # reusable Streamlit display blocks
+│   └── components.py
+│
 ├── data/
-│   ├── sample_enquiries.json     # 12 assessment samples + 2 extra
-│   └── sample_enquiries.csv      # same data for the CSV upload demo
+│   ├── sample_enquiries.json
+│   └── sample_enquiries.csv
+│
 ├── tests/
-│   └── test_system.py            # 21 automated tests
+│   └── test_system.py
+│
+├── README.md
 ├── TECHNICAL_DOCUMENTATION.md
 ├── DEMO_SCRIPT.md
 └── AI_USAGE.md
 ```
 
-## 8. Installation From Scratch (Windows)
+### Important
 
-### Step 1 – Install Python (skip this if `python --version` already shows 3.10 or newer)
-1. Download Python 3.12 from <https://www.python.org/downloads/windows/>.
-2. Run the installer and **tick "Add python.exe to PATH"** at the bottom of the first screen, then click *Install Now*.
-3. Open a **new** Command Prompt and check:
-```cmd
+The following files are intentionally excluded from GitHub:
+
+```text
+.env
+.venv/
+*.db
+```
+
+The Gemini API key is stored locally in `.env` and is never committed to the repository.
+
+---
+
+## 8. Installation
+
+### Step 1 – Install Python
+
+Python 3.10 or newer is recommended.
+
+Check the installed version:
+
+```powershell
 python --version
 ```
 
-### Step 2 – Get the project folder
-Either unzip the project to `C:\Projects\curd-rice-enquiry-automation`, or clone it from GitHub:
-```cmd
-mkdir C:\Projects
-cd C:\Projects
-git clone https://github.com/<your-username>/curd-rice-enquiry-automation.git
+---
+
+### Step 2 – Clone the repository
+
+```powershell
+git clone https://github.com/sakthisree08/curdrice-business-studio-enquiry-automation.git
 ```
 
-### Step 3 – Open a terminal in the project folder
-Press **Win + R**, type `cmd`, press Enter, then:
-```cmd
-cd C:\Projects\curd-rice-enquiry-automation
-```
-(Or in File Explorer, open the folder, click the address bar, type `cmd` and press Enter.)
+Enter the project directory:
 
-### Step 4 – Create and activate a virtual environment
-```cmd
+```powershell
+cd curdrice-business-studio-enquiry-automation
+```
+
+---
+
+### Step 3 – Create a virtual environment
+
+```powershell
 python -m venv .venv
-.venv\Scripts\activate
 ```
-Your prompt now starts with `(.venv)`.
-*Using PowerShell instead?* Run `.\.venv\Scripts\Activate.ps1`. If you see a "running scripts is disabled" error, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once, answer `Y`, and try again.
 
-### Step 5 – Install the requirements
-```cmd
+Activate it in PowerShell:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+The terminal should now show:
+
+```text
+(.venv)
+```
+
+---
+
+### Step 4 – Install dependencies
+
+```powershell
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### Step 6 – Create `.env` and add your API key
-```cmd
-copy .env.example .env
-notepad .env
-```
-Replace `sk-your-key-here` with your real key, then save and close Notepad. *(No key? Leave it unchanged and the app runs in **demo mode**.)*
+---
 
-### Step 7 – Run the application
-```cmd
+## 9. Gemini API Configuration
+
+The application uses the **Google Gemini API** for live AI processing.
+
+Create a local `.env` file in the project root.
+
+Example:
+
+```env
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-3.5-flash-lite
+GEMINI_TIMEOUT_SECONDS=30
+
+FORCE_MOCK_MODE=false
+```
+
+**Never commit `.env` to GitHub.**
+
+The repository's `.gitignore` already excludes `.env`.
+
+### Demo / Mock mode
+
+The application can also operate without a Gemini API key.
+
+If no key is available, the system uses the built-in rule-based mock/fallback engine.
+
+This allows the application to be demonstrated without requiring an external API connection.
+
+---
+
+## 10. Running the Application
+
+Activate the virtual environment:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+Run Streamlit:
+
+```powershell
 streamlit run app.py
 ```
-Your browser opens at <http://localhost:8501>. To stop the app, press **Ctrl + C** in the terminal.
 
-### Optional – Run the REST API (second terminal, venv activated)
-```cmd
+The application normally opens at:
+
+```text
+http://localhost:8501
+```
+
+The Streamlit interface provides:
+
+- New Enquiry
+- Batch Processing
+- Enquiry History & Approval
+- Dashboard
+
+---
+
+## 11. Running the REST API
+
+Open a second terminal and activate the virtual environment.
+
+Run:
+
+```powershell
 uvicorn api:app --reload --port 8000
 ```
-Open <http://127.0.0.1:8000/docs> to try the API interactively.
 
-### Optional – Run the tests
-```cmd
+Open the Swagger documentation:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+### Example API request
+
+PowerShell:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:8000/enquiries `
+  -ContentType "application/json" `
+  -Body '{"text":"We want to automate our inventory and dispatch operations.","source":"website"}'
+```
+
+The API uses the same processing pipeline as the Streamlit application.
+
+---
+
+## 12. AI Workflow
+
+The system uses Gemini for language-related tasks.
+
+### Step 1 – Enquiry analysis
+
+The AI analyses the customer message and extracts structured information such as:
+
+- Customer name
+- Company
+- Email
+- Industry
+- Requirement
+- Service category
+- Budget
+- Timeline
+- Intent
+- Sentiment
+- Urgency
+- Pricing request
+- Sensitive content
+- Confidence
+- Summary
+
+Information that is not mentioned is represented as `null`.
+
+The response is parsed and validated using the `EnquiryAnalysis` Pydantic model.
+
+---
+
+### Step 2 – Grounding
+
+The extracted information is checked against the original enquiry.
+
+If the AI introduces unsupported information, the validator removes or normalises it.
+
+This reduces the risk of hallucinated customer details.
+
+---
+
+### Step 3 – Lead scoring
+
+The validated information is passed to the deterministic Python scoring engine.
+
+The AI does **not** assign the score.
+
+---
+
+### Step 4 – Next Best Action
+
+The system determines:
+
+- Recommended action
+- Owner team
+- Urgency
+- Internal response target
+- Why the action matters
+- Missing information
+- Follow-up questions
+
+The follow-up questions can then be included in the response draft.
+
+---
+
+### Step 5 – Response generation
+
+Gemini generates a customer-facing response based on:
+
+- Business profile
+- Validated enquiry information
+- Business rules
+- Next Best Action
+- Required follow-up information
+
+The generated response is then checked by the response safety layer.
+
+If the response violates business rules, a safe template is used instead.
+
+---
+
+## 13. Lead Scoring
+
+The lead score is calculated using six deterministic factors.
+
+| Factor | Maximum |
+|---|---:|
+| Business intent | 25 |
+| Requirement clarity | 20 |
+| Business information | 15 |
+| Budget | 15 |
+| Timeline / urgency | 10 |
+| Project value | 15 |
+| **Total** | **100** |
+
+### Priority thresholds
+
+| Score | Priority |
+|---:|---|
+| 70–100 | High |
+| 40–69 | Medium |
+| 0–39 | Low |
+
+### Important design decision
+
+The score is calculated in Python rather than by the LLM.
+
+This provides:
+
+- Consistency
+- Explainability
+- Testability
+- Easy tuning
+- Auditability
+
+---
+
+## 14. Next Best Action
+
+The **Next Best Action** is the main innovation in the system.
+
+A lead score tells the team:
+
+> "How valuable is this enquiry?"
+
+It does not necessarily tell them:
+
+> "What should we do next?"
+
+The Next Best Action bridges this gap.
+
+### Example
+
+For a high-value AI automation enquiry:
+
+```text
+Lead Score: 70/100
+Priority: High
+
+Next Best Action:
+Schedule a discovery call to confirm scope.
+
+Owner:
+Sales
+
+Urgency:
+High
+
+Missing information:
+- Company name
+- Approximate budget
+- Current tools
+- Expected enquiry volume
+
+Follow-up questions:
+- Approximately how many enquiries do you currently receive per day?
+- Which channels are currently used?
+```
+
+The questions can be included directly in the response draft.
+
+This reduces unnecessary back-and-forth between the customer and sales team.
+
+---
+
+## 15. Human Review
+
+The system follows a **human-in-the-loop** approach.
+
+Every generated response is initially stored as:
+
+```text
+Draft
+```
+
+A human can:
+
+```text
+Edit → Approve
+```
+
+or:
+
+```text
+Reject
+```
+
+The system flags enquiries for human review when appropriate.
+
+Examples include:
+
+- Complaints
+- Negative sentiment
+- Sensitive content
+- Partnership requests
+- Unclear requirements
+- Low AI confidence
+- AI fallback processing
+- Unsafe response drafts
+
+### Core principle
+
+> **AI prepares. Human decides.**
+
+Nothing is automatically sent to a customer.
+
+---
+
+## 16. Error Handling and Reliability
+
+| Situation | System behaviour |
+|---|---|
+| Missing Gemini API key | Uses mock/demo mode |
+| Gemini API failure | Uses rule-based fallback |
+| Invalid JSON | Parses defensively and attempts one repair |
+| Pydantic validation failure | Retry, then fallback |
+| Unsupported extracted values | Grounding validation removes them |
+| Unsafe response | Safe template replaces the response |
+| Invalid enquiry | Rejected before AI processing |
+| Database failure | Error is reported without crashing the UI |
+| Invalid CSV | Clear error with problematic rows |
+| Unexpected exception | Logged and shown as a friendly error |
+
+The fallback engine ensures that the application remains demonstrable even when the external AI service is unavailable.
+
+---
+
+## 17. Database
+
+The application uses SQLite.
+
+The database is created automatically when the application starts.
+
+The database stores:
+
+- Original enquiry
+- Extracted customer information
+- Classification
+- Sentiment
+- AI confidence
+- Lead score
+- Priority
+- Scoring explanation
+- Next Best Action
+- Response subject
+- Response draft
+- Human-review requirement
+- Human-review reason
+- Processing mode
+- Approval status
+- Reviewer notes
+- Complete result JSON
+
+The database file is ignored by Git and is not included in the repository.
+
+---
+
+## 18. Testing
+
+Run the automated tests using:
+
+```powershell
 python -m unittest discover -s tests -v
 ```
 
-## 9. API Key Setup
+The project contains **21 automated tests** covering:
 
-1. Create a key at <https://platform.openai.com/api-keys>.
-2. Put it **only** in `.env`:
-   ```
-   OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxx
-   OPENAI_MODEL=gpt-4o-mini
-   ```
-3. `config.py` loads it with `python-dotenv`. The key never appears in the code.
+- Input validation
+- Enquiry classification
+- Lead scoring
+- Priority calculation
+- Human-review rules
+- Pricing request handling
+- Grounding validation
+- Response safety guardrails
+- Invalid AI output
+- AI failure fallback
+- Safe response replacement
+- Database storage
+- Approval workflow
 
-**Keeping it out of GitHub:** `.gitignore` already lists `.env` and `*.db`. Before pushing, check:
-```cmd
-git status
-git check-ignore .env
-```
-`git check-ignore .env` should print `.env`, which means Git ignores it. Only `.env.example` (with a placeholder) is committed. If a key is ever pushed by mistake, **revoke it** on the OpenAI dashboard immediately.
+The tests do not require a live Gemini API connection.
 
-**Optional settings:** `OPENAI_BASE_URL` (any OpenAI-compatible server, e.g. a local Ollama at `http://localhost:11434/v1`), `FORCE_MOCK_MODE=true` (demo mode even with a key), `OPENAI_TIMEOUT_SECONDS`.
+---
 
-**Demo / mock mode** is used automatically when no key is set. The app shows a yellow **DEMO / MOCK MODE** banner, every result is labelled `mock`, and the built-in rule engine plus safe templates are used.
+## 19. Sample Enquiries
 
-## 10. Database
+The project includes sample enquiries covering different business scenarios.
 
-- **Engine:** SQLite, through Python's built-in `sqlite3` (no server, no installation).
-- **Location:** `database/enquiries.db` (change it with `DB_PATH` in `.env`).
-- **Creation:** automatic. `init_db()` runs `CREATE TABLE IF NOT EXISTS` when the app or API starts and before every save.
-- **Table `enquiries`:**
+### 1. AI Automation
 
-| Column | Purpose |
-|---|---|
-| `id` | Enquiry ID (auto-increment) |
-| `created_at`, `updated_at` | Timestamps |
-| `source` | website / email / csv / api … |
-| `original_enquiry` | The customer's text |
-| `customer_name`, `company_name`, `email`, `requirement`, `budget`, `timeline` | Extracted information (`NULL` = not mentioned) |
-| `category`, `sentiment`, `confidence` | Classification |
-| `extracted_json` | The full validated AI extraction |
-| `lead_score`, `priority`, `scoring_explanation` | Lead intelligence |
-| `next_action` | Recommended next best action |
-| `response_subject`, `response_draft` | The reply draft (editable by the reviewer) |
-| `human_review_required`, `human_review_reason` | Review flag and reasons |
-| `processing_mode` | `openai` / `mock` / `fallback` |
-| `status`, `reviewer_notes` | `Draft` → `Approved` / `Rejected` (set by a human) |
-| `result_json` | The complete result, so any record can be re-displayed exactly |
-
-- **Retrieval:** `list_enquiries()` (filter by priority, category, status, review flag), `get_enquiry(id)`, `get_stats()` for the dashboard, `update_status()` for approvals. All queries are parameterised, which prevents SQL injection.
-
-## 11. AI Workflow
-
-The system makes two LLM calls per enquiry, both in **JSON mode** at a low temperature:
-
-1. **Analysis call:** the system prompt contains the business's services, the exact JSON schema, the allowed categories and strict extraction rules ("extract only what is written; otherwise null"). The output is validated by the `EnquiryAnalysis` Pydantic model.
-2. **Response call:** the prompt contains the business profile, the business rules, the validated analysis and the **follow-up questions from the Next Best Action**. The output is validated by `ResponseDraft` and then by the safety guardrail.
-
-The LLM **never** decides the score, priority, human-review flag or next action. Those come from Python rules.
-
-## 12. Lead Scoring Logic
-
-Implemented in `services/scoring_service.py`. The score is the sum of six factors (maximum 100):
-
-| Factor | Max | Rule |
-|---|---|---|
-| Business intent | 25 | buy a service = 25 · partnership = 12 · information = 8 · other = 4 · job/complaint = 0 |
-| Requirement clarity | 20 | requirement stated = 8, + concrete deliverable named (system, website, ERP, chatbot…) = 6, + ≥ 5 words of detail = 6 |
-| Business information | 15 | company name = 6 · industry = 5 · contact name/email = 4 |
-| Budget | 15 | any budget stated = 15 |
-| Timeline / urgency | 10 | urgent ("immediately", "this week") = 10 · other timeline = 6 |
-| Project value | 15 | category value 0–12 (from `config.CATEGORY_PROFILES`) + 3 for a scale/complexity signal ("500 enquiries per day", "ERP", "12 stores") |
-
-**Priority thresholds:** **High ≥ 70**, **Medium 40–69**, **Low < 40** (in `config.py`).
-
-**Explanation:** generated from the factors. Factors scoring at least 60% of their maximum become reasons ("…because the customer shows clear intent to buy a service, a budget has been specified (₹2 lakh) and the customer wants to start soon"). Factors scoring 0 are listed as "Score held back by: no budget mentioned…".
-
-Complaints and job applications score low **on purpose**. The score measures *sales potential*. Their urgency is handled by the Next Best Action (a complaint gets **Critical** urgency) and by human review.
-
-## 13. Human Review Logic
-
-`services/review_service.py`. Every draft needs a human's approval before it is sent. On top of that, an enquiry is flagged **HUMAN REVIEW REQUIRED** if any of these apply:
-
-| Rule | Example |
-|---|---|
-| Category is Complaint / Support | "I am unhappy with the service…" |
-| Sentiment is negative or angry | "This is unacceptable…" |
-| Sensitive content | legal threats, data issues, medical, harassment |
-| Partnership request | needs a management decision |
-| Category "Other" | unusual request |
-| Buying intent but no clear requirement | unclear requirement |
-| AI confidence < 0.6 | the model is unsure |
-| Processed by the fallback engine | the AI failed, so the analysis should be verified |
-| The AI draft broke a business rule | the draft was replaced by a template, so the reply should be checked |
-
-Each triggered rule adds a plain-English reason, shown in the UI and stored in `human_review_reason`. Otherwise the app shows *"No human review required."*
-
-## 14. Innovation – Next Best Action & Missing-Information Detection
-
-**The problem:** a lead score tells the team *how good* a lead is. It does not tell them *what to do*. In practice, most first replies are a slow back-and-forth to collect basics like budget, timeline or company name.
-
-**What it does** (`services/next_action_service.py`). For every enquiry it produces:
-
-- **Recommended action:** e.g. *"Schedule a discovery call to confirm scope"* (High lead), *"Escalate to the account manager and call the customer personally"* (complaint), *"Forward to the founders/management"* (partnership), *"Forward to the hiring team"* (internship).
-- **Urgency** (Critical / High / Medium / Low), **owner team** (Sales, Customer Success, Management, HR) and an **internal response target** (2 h / 24 h / 48 h…). The target is internal only and is never promised to the customer.
-- **Why it matters:** built from the scoring signals.
-- **Missing information:** the standard fields (budget, timeline, company, contact) plus **category-specific discovery questions** (e.g. AI Automation → *"Roughly how many requests per day?"*, Website → *"Do you already have a domain?"*).
-- **Closing the loop:** the questions are **inserted into the reply draft automatically**, so the first reply already collects what sales needs. That saves a full email round-trip.
-
-**Why it is useful:** it turns raw AI analysis into a playbook step a sales team can follow, keeps the separation between *how valuable a lead is* (score) and *how urgent it is* (a complaint is low value but critical), and shortens the time to a qualified discovery call. It is rule-based, so it is explainable and testable, and adding a category with its own questions only needs one entry in `config.py`.
-
-Example (sample 008):
-```
-Lead Score: 70/100   Priority: HIGH
-Next Best Action: Schedule a discovery call to confirm scope; prepare relevant case examples.
-Urgency: High · Owner: Sales · Internal target: 24 hours
-Missing information: Approximate budget range, Company name, Contact name / phone number,
-                     Which channels or tools you currently use for this process
+```text
+We are a jewellery business looking for an AI-powered WhatsApp customer support system.
 ```
 
-## 15. Error Handling
+### 2. Website Development
 
-| Situation | What happens |
-|---|---|
-| **API key missing** | Demo/mock mode switches on automatically, with a banner in the UI; `/health` reports `"ai_mode": "mock"` |
-| **API fails** (bad key, quota, network, timeout, unknown model) | The OpenAI exception becomes a readable `AIServiceError`; the rule-based fallback analyses the enquiry and a safe template reply is used; mode is `fallback`, a warning is shown, and **human review is forced** |
-| **AI output invalid / malformed JSON** | The JSON is parsed defensively (code fences and extra text stripped), then validated by Pydantic. If it fails, the model gets **one self-repair retry** with the error message. If that also fails, the fallback is used |
-| **AI output has wrong values** | Validators normalise "Not mentioned" to `null`, map unknown categories to "Other", clamp confidence to 0–1, and drop invalid emails |
-| **AI invents facts** | The grounding check removes extracted values that are not in the enquiry; the response guardrail replaces drafts with invented prices, guarantees or timeframes |
-| **Invalid enquiry** (empty, too short, no letters, over 5000 characters) | Rejected before any AI call with a clear message (UI warning / HTTP 422) |
-| **Database fails** | `DatabaseError` with a readable message. The analysis is still shown, with a "could not be saved" warning. The API returns HTTP 503 |
-| **Bad CSV** | Unreadable file or missing column → clear error; bad rows are skipped and listed |
-| **Unexpected exception** | Logged with a full traceback in the terminal; the user sees a friendly message (UI) or HTTP 500 (API) |
-
-## 16. Testing
-
-**Automated:** `python -m unittest discover -s tests -v` runs **21 tests** covering input validation, all 12 samples, classification and priority expectations, human-review rules, deterministic scoring, the pricing-request rule, the grounding check, the response guardrail, malformed-JSON retry, AI-failure fallback, replacement of a rule-breaking draft, and the database round-trip with approval. The LLM paths are tested with a fake OpenAI client, so no API key is needed.
-
-**Manual test cases (expected results in demo mode; live AI should match on category and review status, while extracted wording may differ slightly):**
-
-| ID | Enquiry (short) | Category | Score | Priority | Human review | Next-action urgency |
-|---|---|---|---|---|---|---|
-| 001 | Jewellery – AI WhatsApp support | AI Automation | 62 | Medium | No | Medium |
-| 002 | Website, ₹2 lakh, this week | Website Development | 83 | **High** | No | High |
-| 003 | What services do you offer? | General Enquiry | 11 | Low | No | Low |
-| 004 | Automate inventory & dispatch | Operational Systems | 57 | Medium | No | Medium |
-| 005 | Digital marketing internship | Internship / Job Application | 8 | Low | No | Low |
-| 006 | ERP for silver jewellery | Operational Systems | 65 | Medium | No | Medium |
-| 007 | Send your pricing | General Enquiry | 11 | Low | No | Medium (no price invented) |
-| 008 | AI for 500 enquiries/day, immediately | AI Automation | 70 | **High** | No | High |
-| 009 | Student – college project | Internship / Job Application | 8 | Low | No | Low |
-| 010 | AI assistant on internal documents | AI Automation | 60 | Medium | No | Medium |
-| 011 | Partnership opportunity | Partnership | 31 | Low | **Yes** | Medium |
-| 012 | Unhappy, call me urgently | Complaint / Support | 24 | Low | **Yes** | **Critical** |
-| X01 | Full details: name, company, email, ₹5 lakh, 12 stores | Business Intelligence | 96 | **High** | No | High |
-| X02 | Angry, data leak, lawyer | Complaint / Support | 0 | Low | **Yes** (3 reasons) | **Critical** |
-
-**Edge cases to try:** an empty enquiry (warning), `hi` (too short), `12345 !!!` (no readable text), a CSV without an `enquiry` column (clear error), and an invalid API key (the fallback banner appears and review is forced).
-
-## 17. Sample Enquiries
-
-All are in `data/sample_enquiries.json` / `.csv`. Load them from the dropdown on the **New Enquiry** page, or process them all at once on **Batch Processing**.
-
-| ID | Enquiry |
-|---|---|
-| 001 | We are a jewellery business looking for an AI-powered WhatsApp customer support system. |
-| 002 | Need a website for our manufacturing company. Budget is ₹2 lakh. Can we discuss this week? |
-| 003 | What services do you offer? |
-| 004 | We want to automate our inventory and dispatch operations. |
-| 005 | Looking for a digital marketing internship. |
-| 006 | We are interested in developing an ERP system for our silver jewellery business. |
-| 007 | Your services look interesting. Please send your pricing details. |
-| 008 | Need AI automation for handling 500 customer enquiries per day. We want to start immediately. |
-| 009 | I am a student looking for a college project opportunity. |
-| 010 | We need an AI assistant that can read documents and answer questions from our internal company data. |
-| 011 | I want to partner with your company for a business opportunity. |
-| 012 | I am unhappy with the service received and need someone to call me urgently. |
-| X01 | Hi, I'm Priya Sharma from Lakshmi Textiles (priya@lakshmitextiles.in). We need a Power BI sales dashboard connected to our ERP for 12 stores. Budget around ₹5 lakh, we'd like to start next month. *(extra: full-detail lead)* |
-| X02 | This is unacceptable. Your team shared our confidential sales data with another client. Our lawyer will contact you. *(extra: angry + sensitive)* |
-
-All names and companies in the extra samples are fictional.
-
-## 18. How to Run
-
-```cmd
-.venv\Scripts\activate
-streamlit run app.py
-```
-Optional API: `uvicorn api:app --reload --port 8000` → <http://127.0.0.1:8000/docs>
-
-Example API call (PowerShell):
-```powershell
-Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/enquiries -ContentType "application/json" -Body '{"text":"We want to automate our inventory and dispatch operations.","source":"website"}'
+```text
+Need a website for our manufacturing company. Budget is ₹2 lakh. Can we discuss this week?
 ```
 
-## 19. Technical Interview Questions
+### 3. General Enquiry
 
-**Why did you choose this architecture?**
-A single pipeline function (`process_enquiry`) with one small service per responsibility: AI, scoring, next action, response, review, storage. The UI, the API and the CSV batch all call the same function, so there is no duplicated logic and each step can be tested on its own. It is simple enough to explain, and each service could become a separate worker later.
+```text
+What services do you offer?
+```
 
-**Why this technology stack?**
-Python for its AI ecosystem; Streamlit for a full UI without frontend work; FastAPI so other systems can push enquiries automatically; OpenAI JSON mode for reliable structured output; Pydantic to validate it; SQLite for zero-setup storage. Everything is free to run locally.
+### 4. Operational Automation
 
-**Why SQLite?**
-It needs no server, is built into Python, is one file and is created automatically, which is enough for hundreds of thousands of rows. Queries are plain SQL, so moving to PostgreSQL later only means changing the connection layer.
+```text
+We want to automate our inventory and dispatch process. We currently use Excel and have 3 warehouses.
+```
 
-**Why use an LLM?**
-Enquiries are free text with endless phrasing. Keyword rules break on wording like "need folks to handle our WhatsApp chats". An LLM understands intent, extracts entities and writes natural, personalised replies. I use it only for language tasks, and the business decisions stay in code.
+### 5. Internship
 
-**How does the system decide the lead priority?**
-Six transparent factors: intent 25, requirement clarity 20, business info 15, budget 15, timeline 10 and project value 15, for a total out of 100. High is 70 or more, Medium is 40 or more, otherwise Low. The LLM only provides facts. The points come from Python, and the explanation is generated from the same factors, so the reasoning is always shown.
+```text
+Hi, I am looking for a digital marketing internship. Do you have any openings?
+```
 
-**How do you prevent the AI from generating incorrect business information?**
-Five layers: (1) strict prompts that list only the real services and rules; (2) "null if not mentioned" plus Pydantic normalisation; (3) a **grounding check** that removes any extracted name, email, company, budget or timeline not found in the enquiry; (4) a **response guardrail** that scans drafts for prices, guarantees, timeframes and discounts and replaces unsafe drafts with a safe template; (5) **human approval**: nothing is ever sent automatically.
+### 6. ERP
 
-**What happens if the LLM returns invalid JSON or the AI model fails?**
-The JSON is parsed defensively and validated by Pydantic. If it is invalid, the model gets one retry with the validation error ("self-repair"). If that also fails, or the API errors, the rule-based engine processes the enquiry, the mode is marked `fallback`, a warning is shown and human review is forced. The user never sees a crash.
+```text
+We are a silver jewellery business and need a custom ERP application to manage inventory, sales, and accounting.
+```
 
-**How do you handle API failure?**
-All OpenAI exceptions (authentication, rate limit, timeout, connection, model not found) are mapped to a readable `AIServiceError`. The pipeline catches it and falls back. The client also uses a timeout and the SDK's built-in retry.
+### 7. Pricing
 
-**How would you scale to 10,000 enquiries per day?**
-10,000 a day is only about 7 per minute on average, so the main issues are reliability and cost rather than raw throughput. (1) Put the FastAPI endpoint in front of a **queue** (Redis/RQ, Celery or SQS) and process with several **async workers**. (2) Move from SQLite to **PostgreSQL**. (3) Add **retries with exponential backoff** and rate-limit handling, plus a dead-letter queue. (4) **Cache or deduplicate** repeated enquiries and use a small, cheap model for classification. Consider the **OpenAI Batch API** for non-urgent items. (5) Monitor latency, cost per enquiry, fallback rate and reviewer overrides. (6) Add authentication and API keys on the endpoint.
+```text
+Can you send me your pricing details?
+```
 
-**What would you improve with another two days?**
-Gmail/IMAP ingestion and a website-form webhook; sending approved drafts through the email API after approval; a feedback loop where reviewer edits and won/lost deals tune the scoring weights; RAG over the studio's real service and FAQ documents so replies are richer but still grounded; role-based login; PostgreSQL and a queue; an evaluation set to measure classification accuracy; and Docker for deployment.
+### 8. Urgent AI Automation
 
-**What is the role of human approval?**
-The AI prepares; a human decides. Every draft is stored as `Draft` and only a person can mark it `Approved` or `Rejected`, optionally after editing it. Risky cases (complaints, partnerships, sensitive or unclear enquiries, low confidence, AI failures) are highlighted with reasons, so reviewers spend their time where it matters.
+```text
+We need an AI automation solution for handling around 500 customer enquiries per day. This is urgent and we want to start immediately.
+```
 
-**How is your innovative feature useful?**
-It turns analysis into action. The team immediately knows what to do, who owns it and how urgently. The missing-information questions are built into the first reply, which removes an email round-trip and gets a qualified lead to a discovery call faster. It also separates value from urgency: a complaint is low value but critical.
+### 9. Student Project
 
-**Why not let the LLM give the score?**
-LLM scores are inconsistent (the same enquiry can score 72 one time and 85 the next), cannot be audited and are hard to tune. Rules are deterministic, explainable to the business and adjustable in `config.py`.
+```text
+I am a college student looking for a project/internship opportunity. Can you help me with a final-year project?
+```
 
-## Known Limitations
+### 10. Internal AI Assistant
 
-- The mock/fallback engine is keyword-based, so it is less accurate than the LLM on unusual phrasing.
-- The response guardrail uses regular expressions, so it catches common price and date patterns but not every possible paraphrase. Human approval is the final safety net.
-- Single-user local app: no authentication, and SQLite is not intended for heavy concurrent writes.
-- The email is drafted but deliberately not sent; there is no inbox integration yet.
-- Scoring weights are expert-chosen, not yet learned from real conversion data.
+```text
+We need an AI assistant that can read documents and answer questions from our internal company data.
+```
+
+### 11. Partnership
+
+```text
+We are interested in partnering with your company for technology projects. Can we discuss a possible partnership?
+```
+
+### 12. Complaint
+
+```text
+I am unhappy with the service we received. The issue has not been resolved despite multiple follow-ups. Please have someone call me urgently.
+```
+
+These can be processed individually through **New Enquiry** or together through **Batch Processing**.
+
+---
+
+## 20. API and Automation
+
+The FastAPI layer allows external systems to submit enquiries.
+
+Potential integrations include:
+
+```text
+Website Form
+     │
+     ▼
+FastAPI
+     │
+     ▼
+Enquiry Pipeline
+     │
+     ├── AI Analysis
+     ├── Lead Scoring
+     ├── Next Best Action
+     ├── Response Draft
+     └── Human Review
+```
+
+This architecture can later be connected to:
+
+- Website enquiry forms
+- Email ingestion
+- WhatsApp webhooks
+- CRM systems
+- n8n
+- Make
+- Zapier
+- Other internal systems
+
+---
+
+## 21. Why the Architecture?
+
+The project uses one central pipeline:
+
+```text
+process_enquiry()
+```
+
+The Streamlit UI, CSV processing and FastAPI endpoint all use the same pipeline.
+
+This avoids duplicated business logic.
+
+Each responsibility is separated into its own service:
+
+```text
+ai_service.py
+scoring_service.py
+next_action_service.py
+response_service.py
+review_service.py
+database.py
+```
+
+This makes the system easier to:
+
+- Test
+- Debug
+- Explain
+- Maintain
+- Extend
+
+---
+
+## 22. Why Not Let the LLM Decide the Score?
+
+LLM-generated scores can vary between runs.
+
+For example, the same enquiry could receive different scores depending on model behaviour.
+
+Instead:
+
+```text
+LLM
+ ↓
+Extract facts
+ ↓
+Python rules
+ ↓
+Deterministic score
+ ↓
+Priority
+```
+
+This makes the scoring logic transparent and auditable.
+
+---
+
+## 23. Preventing Incorrect Business Information
+
+The system uses multiple protection layers:
+
+### 1. Prompt constraints
+
+The model receives the actual business profile and instructions to avoid unsupported information.
+
+### 2. Structured output
+
+AI output is validated using Pydantic.
+
+### 3. Grounding check
+
+Extracted information is checked against the original enquiry.
+
+### 4. Response guardrail
+
+The generated response is checked for potentially invented:
+
+- Prices
+- Discounts
+- Guarantees
+- Deadlines
+- Commitments
+
+### 5. Human approval
+
+Every response remains a draft until reviewed by a person.
+
+---
+
+## 24. Scaling to 10,000 Enquiries per Day
+
+The current application is designed as an MVP and runs locally.
+
+For approximately 10,000 enquiries per day, the architecture could be extended to:
+
+1. Put a queue between the API and processing workers.
+2. Replace SQLite with PostgreSQL.
+3. Run multiple asynchronous workers.
+4. Add retry and exponential backoff handling.
+5. Add rate-limit management.
+6. Add deduplication and caching.
+7. Monitor latency, AI cost, fallback rate and reviewer overrides.
+8. Add API authentication.
+9. Add structured logging and monitoring.
+10. Separate urgent enquiries from batch processing.
+
+The current separation between API, pipeline and individual services makes this migration easier.
+
+---
+
+## 25. Improvements With Two More Days
+
+Possible improvements include:
+
+- Gmail/IMAP enquiry ingestion
+- Website-form webhook
+- Approved-response email integration
+- CRM integration
+- PostgreSQL
+- Background job queue
+- Role-based authentication
+- RAG over the company's real service and FAQ documents
+- Evaluation dataset for classification accuracy
+- Reviewer-feedback loop for scoring improvements
+- Docker deployment
+- Production monitoring
+- Automated model evaluation
+
+---
+
+## 26. Known Limitations
+
+- The mock/fallback engine is rule-based and may be less accurate than Gemini for unusual wording.
+- The response guardrail uses pattern-based checks and may not detect every possible paraphrase.
+- The application is currently designed for local/single-user use.
+- SQLite is not intended for heavy concurrent production workloads.
+- Responses are drafted but not automatically sent.
+- Scoring weights are currently expert-defined and are not learned from historical conversion data.
+- Production deployment would require authentication, monitoring, stronger secret management and scalable infrastructure.
+
+---
+
+## 27. AI Usage Disclosure
+
+AI tools were used as development assistants for coding, debugging, architecture discussion, testing and documentation.
+
+The final application uses **Google Gemini API** as its runtime AI component.
+
+The main architectural decision is:
+
+> **LLM for language understanding and generation; Python for deterministic business decisions.**
+
+The AI-generated code was locally installed, executed, tested and verified before submission.
+
+See [`AI_USAGE.md`](AI_USAGE.md) for the detailed AI usage disclosure.
+
+---
+
+## 28. Demonstration
+
+The project includes:
+
+- `DEMO_SCRIPT.md` – demonstration flow
+- `TECHNICAL_DOCUMENTATION.md` – detailed technical explanation
+- `AI_USAGE.md` – AI usage disclosure
+
+The recommended demonstration shows:
+
+1. Project architecture
+2. Live enquiry processing
+3. AI classification
+4. Lead scoring
+5. Next Best Action
+6. Response generation
+7. Human-review decision
+8. Database/history
+9. Batch processing
+10. REST API
+11. Automated tests
+
+---
+
+## 29. Repository
+
+GitHub:
+
+https://github.com/sakthisree08/curdrice-business-studio-enquiry-automation
+
+---
+
+## 30. Conclusion
+
+This project demonstrates a practical AI-powered business enquiry automation workflow where AI handles unstructured language while deterministic business rules control important decisions.
+
+The system combines:
+
+```text
+AI Understanding
+       +
+Deterministic Business Logic
+       +
+Lead Intelligence
+       +
+Next Best Action
+       +
+Response Guardrails
+       +
+Human Approval
+       +
+Persistent Storage
+       =
+Reliable Enquiry Automation
+```
+
+The design focuses on practical business value rather than allowing the LLM to make uncontrolled business decisions.
