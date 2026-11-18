@@ -1,0 +1,15 @@
+id,enquiry,source
+001,We are a jewellery business looking for an AI-powered WhatsApp customer support system.,assessment
+002,Need a website for our manufacturing company. Budget is ₹2 lakh. Can we discuss this week?,assessment
+003,What services do you offer?,assessment
+004,We want to automate our inventory and dispatch operations.,assessment
+005,Looking for a digital marketing internship.,assessment
+006,We are interested in developing an ERP system for our silver jewellery business.,assessment
+007,Your services look interesting. Please send your pricing details.,assessment
+008,Need AI automation for handling 500 customer enquiries per day. We want to start immediately.,assessment
+009,I am a student looking for a college project opportunity.,assessment
+010,We need an AI assistant that can read documents and answer questions from our internal company data.,assessment
+011,I want to partner with your company for a business opportunity.,assessment
+012,I am unhappy with the service received and need someone to call me urgently.,assessment
+X01,"Hi, I'm Priya Sharma from Lakshmi Textiles (priya@lakshmitextiles.in). We need a Power BI sales dashboard connected to our ERP for 12 stores. Budget around ₹5 lakh, we'd like to start next month.",extra
+X02,This is unacceptable. Your team shared our confidential sales data with another client. Our lawyer will contact you.,extra

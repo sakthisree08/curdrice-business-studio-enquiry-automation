@@ -1,0 +1,86 @@
+[
+  {
+    "id": "001",
+    "label": "AI automation requirement",
+    "enquiry": "We are a jewellery business looking for an AI-powered WhatsApp customer support system.",
+    "source": "assessment"
+  },
+  {
+    "id": "002",
+    "label": "Website requirement with budget",
+    "enquiry": "Need a website for our manufacturing company. Budget is ₹2 lakh. Can we discuss this week?",
+    "source": "assessment"
+  },
+  {
+    "id": "003",
+    "label": "General enquiry",
+    "enquiry": "What services do you offer?",
+    "source": "assessment"
+  },
+  {
+    "id": "004",
+    "label": "Operations automation",
+    "enquiry": "We want to automate our inventory and dispatch operations.",
+    "source": "assessment"
+  },
+  {
+    "id": "005",
+    "label": "Internship request",
+    "enquiry": "Looking for a digital marketing internship.",
+    "source": "assessment"
+  },
+  {
+    "id": "006",
+    "label": "ERP requirement",
+    "enquiry": "We are interested in developing an ERP system for our silver jewellery business.",
+    "source": "assessment"
+  },
+  {
+    "id": "007",
+    "label": "Pricing request",
+    "enquiry": "Your services look interesting. Please send your pricing details.",
+    "source": "assessment"
+  },
+  {
+    "id": "008",
+    "label": "Large-scale automation",
+    "enquiry": "Need AI automation for handling 500 customer enquiries per day. We want to start immediately.",
+    "source": "assessment"
+  },
+  {
+    "id": "009",
+    "label": "Student project",
+    "enquiry": "I am a student looking for a college project opportunity.",
+    "source": "assessment"
+  },
+  {
+    "id": "010",
+    "label": "AI document assistant",
+    "enquiry": "We need an AI assistant that can read documents and answer questions from our internal company data.",
+    "source": "assessment"
+  },
+  {
+    "id": "011",
+    "label": "Partnership request",
+    "enquiry": "I want to partner with your company for a business opportunity.",
+    "source": "assessment"
+  },
+  {
+    "id": "012",
+    "label": "Complaint (human review)",
+    "enquiry": "I am unhappy with the service received and need someone to call me urgently.",
+    "source": "assessment"
+  },
+  {
+    "id": "X01",
+    "label": "Full details (name, company, email)",
+    "enquiry": "Hi, I'm Priya Sharma from Lakshmi Textiles (priya@lakshmitextiles.in). We need a Power BI sales dashboard connected to our ERP for 12 stores. Budget around ₹5 lakh, we'd like to start next month.",
+    "source": "extra"
+  },
+  {
+    "id": "X02",
+    "label": "Angry + sensitive",
+    "enquiry": "This is unacceptable. Your team shared our confidential sales data with another client. Our lawyer will contact you.",
+    "source": "extra"
+  }
+]
